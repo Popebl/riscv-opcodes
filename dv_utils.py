@@ -10,6 +10,94 @@ pp = pprint.PrettyPrinter(indent=2)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:: %(message)s")
 
 
+
+#example
+#
+#  `define ZBB_I_INSTR_CG_BEGIN(INSTR_NAME) \
+#  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
+#    cp_rs1         : coverpoint instr.rs1; \
+#    cp_rd          : coverpoint instr.rd; \
+#    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)
+#
+#`define ZBB_R_INSTR_CG_BEGIN(INSTR_NAME) \
+#  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
+#    cp_rs1         : coverpoint instr.rs1; \
+#    cp_rs2         : coverpoint instr.rs2; \
+#    cp_rd          : coverpoint instr.rd;  \
+#    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;) \
+# \
+#    `ZBB_I_INSTR_CG_BEGIN(roriw)
+#`CP_VALUE_RANGE(num_bit_rotate, instr.imm, 0, XLEN / 2 - 1)
+#`CG_END
+#
+#`ZBB_R_INSTR_CG_BEGIN(rev8)
+#`CG_END
+#
+#// Multiplication
+#`ZBC_R_INSTR_CG_BEGIN(clmul)
+#`CG_END
+#
+#`ZBC_R_INSTR_CG_BEGIN(clmulh)
+#`CG_END
+
+
+
+coverage_define = []
+coverage_define_record = []
+coverage_delaration = []
+
+
+
+def gen_coverage_code(instr_dict: dict):
+    global coverage_delaration
+    extension = instr_dict['extension']
+    if '_' in extension :
+        isa_extension = extension.split('_')[1].upper()
+    else:
+        isa_extension = 'ERROR'
+
+    isa_type = instr_dict['type']
+    isa_name = instr_dict['isa_name']
+
+    sv_line = '`' + isa_extension + '_' + isa_type + '_INSTR_CG_BEGIN(' + isa_name +')'
+    coverage_delaration.append(sv_line)
+    sv_line = '`CG_END'
+    coverage_delaration.append(sv_line)
+    sv_line = ''
+    coverage_delaration.append(sv_line)
+
+    #  `define ZBB_I_INSTR_CG_BEGIN(INSTR_NAME) \
+    #  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
+    #    cp_rs1         : coverpoint instr.rs1; \
+    #    cp_rd          : coverpoint instr.rd; \
+    #    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)
+    #
+    sv_line = '  `define ' + isa_extension  + '_' + isa_type +'_INSTR_CG_BEGIN(INSTR_NAME) \\'
+    if sv_line not in coverage_define_record:
+        coverage_define_record.append(sv_line)
+        coverage_define.append(sv_line)
+
+        sv_line = '  `INSTR_CG_BEGIN(INSTR_NAME, ' + 'riscv_' + isa_extension.lower() + '_instr) \\'
+        coverage_define.append(sv_line)
+
+        sv_line = '    cp_rs1         : coverpoint instr.rs1; \\'
+        coverage_define.append(sv_line)
+
+        sv_line = '    cp_rd          : coverpoint instr.rd; \\'
+        coverage_define.append(sv_line)
+
+        sv_line = '    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)'
+        coverage_define.append(sv_line)
+
+        sv_line = '  '
+        coverage_define.append(sv_line)
+
+
+    pass
+
+
+
+
 def make_dv(instr_dict: InstrDict):
     # 指定输出的 CSV 文件名
 
@@ -17,18 +105,20 @@ def make_dv(instr_dict: InstrDict):
     for key in instr_dict.keys():
         dict_item = instr_dict[key]
         temp_dict = {}
+        temp_dict['extension'] = dict_item['extension'][0]
         temp_dict['isa_name'] = dict_item['isa_name']
         temp_dict['type'] = dict_item['type']
         temp_dict['opcode'] = dict_item['opcode']
-        if dict_item['funct3']:
+        if "funct3" in dict_item:
             temp_dict['funct3'] = dict_item['funct3']
         else:
             temp_dict['funct3'] = ''
-        if dict_item['funct7']:
+        if 'funct7' in dict_item:
             temp_dict['funct7'] = dict_item['funct7']
         else:
             temp_dict['funct7'] = ''
         data.append(temp_dict)
+        gen_coverage_code(temp_dict)
     pass
 
 
@@ -54,6 +144,22 @@ def make_dv(instr_dict: InstrDict):
         writer.writerows(data)
 
     print(f"数据已成功写入 {output_file}")
+
+    # 指定输出文件名
+    coverage_delaration_file = "coverage_delaration.sv"
+
+    # 按行写入 .sv 文件
+    with open(coverage_delaration_file, mode='w', encoding='utf-8') as file:
+        for line in coverage_define:
+            file.write(line + '\n')  # 每行写入后添加换行符
+    # 按行写入 .sv 文件
+    with open(coverage_delaration_file, mode='a', encoding='utf-8') as file:
+        for line in coverage_delaration:
+            file.write(line + '\n')  # 每行写入后添加换行符
+
+    print(f"内容已成功写入到 {coverage_delaration_file}")
+
+
 
     # Write the modified output to the file
 #    with open("dv.encoding.out.h", "w", encoding="utf-8") as enc_file:

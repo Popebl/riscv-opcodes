@@ -109,18 +109,36 @@ def gen_coverage_code(instr_dict: dict):
 
 
 
+def add_leading_quote(row):
+    return {k: f"{v}" if isinstance(v, str) and v.isdigit() else v for k, v in row.items()}
 
-def make_dv(instr_dict: InstrDict):
+def force_text_format(row):
+    return {k: f'= "{v}"' if k == "ID" else v for k, v in row.items()}
+
+def make_talon(instr_dict: InstrDict):
     # 指定输出的 CSV 文件名
 
     data = []
+    talon_r = []
+    talon_i = []
     for key in instr_dict.keys():
         dict_item = instr_dict[key]
         temp_dict = {}
+        talon_dict = {}
         temp_dict['extension'] = dict_item['extension'][0]
         temp_dict['isa_name'] = dict_item['isa_name']
         temp_dict['type'] = dict_item['type']
         temp_dict['opcode'] = dict_item['opcode']
+        temp_dict['variable_filed'] = dict_item['variable_fields']
+
+        temp_dict['instruction'] = dict_item['isa_name']
+        for item in temp_dict['variable_filed']:
+            temp_dict['instruction'] +=  ' ' + item + ','
+
+        temp_dict['instruction'] = temp_dict['instruction'].rstrip(',')
+        talon_dict['Instructions'] = temp_dict['instruction']
+        pass
+
         if "funct3" in dict_item:
             temp_dict['funct3'] = dict_item['funct3']
         else:
@@ -129,6 +147,22 @@ def make_dv(instr_dict: InstrDict):
             temp_dict['funct7'] = dict_item['funct7']
         else:
             temp_dict['funct7'] = ''
+
+        talon_dict['opcode[6:5]'] = temp_dict['opcode'][0:2]
+        talon_dict['opcode[4:2]'] = temp_dict['opcode'][2:5]
+        talon_dict['opcode[1:0]'] = temp_dict['opcode'][5:]
+
+        if 'R' == temp_dict['type']:
+            talon_dict['funct7[31:25]'] = temp_dict['funct7']
+            talon_dict['funct3[14:12]'] = temp_dict['funct3']
+            talon_dict['inst[24:20]'] = 'rs2'
+            talon_dict['inst[19:15]'] = 'rs1'
+            talon_dict['inst[11:17]'] = 'rd'
+            talon_r.append(talon_dict)
+
+        if 'I' == temp_dict['type']:
+            talon_i.append(talon_dict)
+
         data.append(temp_dict)
         gen_coverage_code(temp_dict)
     pass
@@ -145,16 +179,18 @@ def make_dv(instr_dict: InstrDict):
     # 指定输出的 CSV 文件名
     output_file = "output.csv"
 
+    field_order = ["Instructions", "funct7[31:25]", "inst[24:20]", "inst[19:15]",
+                   "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
     # 将数据写入 CSV 文件
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.DictWriter(file, fieldnames=data[0].keys())
+        writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
 
         # 写入表头
         writer.writeheader()
 
         # 写入数据行
-        writer.writerows(data)
-
+        #writer.writerows(talon_r)
+        writer.writerows([add_leading_quote(row) for row in talon_r])
     print(f"数据已成功写入 {output_file}")
 
     # 指定输出文件名

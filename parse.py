@@ -7,6 +7,7 @@ import pprint
 
 from c_utils import make_c
 from dv_utils import make_dv, parse_isa
+from talon_utils import make_talon
 from chisel_utils import make_chisel
 from constants import emitted_pseudo_ops
 from go_utils import make_go
@@ -27,6 +28,7 @@ def generate_extensions(
     include_pseudo: bool,
     c: bool,
     dv: bool,
+    talon: bool,
     chisel: bool,
     spinalhdl: bool,
     sverilog: bool,
@@ -58,6 +60,18 @@ def generate_extensions(
 
         parse_isa(instr_dict_c)
         make_dv(instr_dict_c)
+        logging.info("dvencoding.out.h generated successfully")
+
+    if talon:
+        instr_dict_c = create_inst_dict(
+            extensions, False, include_pseudo_ops=emitted_pseudo_ops
+        )
+
+        instr_dict_c = dict(sorted(instr_dict_c.items()))
+
+
+        parse_isa(instr_dict_c)
+        make_talon(instr_dict_c)
         logging.info("dvencoding.out.h generated successfully")
 
     if chisel:
@@ -94,6 +108,7 @@ def main():
     )
     parser.add_argument("-c", action="store_true", help="Generate output for C")
     parser.add_argument("-dv", action="store_true", help="Generate output for dv")
+    parser.add_argument("-talon", action="store_true", help="Generate output for talon")
     parser.add_argument(
         "-chisel", action="store_true", help="Generate output for Chisel"
     )
@@ -121,6 +136,7 @@ def main():
         args.pseudo,
         args.c,
         args.dv,
+        args.talon,
         args.chisel,
         args.spinalhdl,
         args.sverilog,

@@ -72,7 +72,7 @@ def generate_extensions(
 
         parse_isa(instr_dict_c)
         make_talon(instr_dict_c)
-        logging.info("dvencoding.out.h generated successfully")
+        logging.info("talon data generated successfully")
 
     if chisel:
         make_chisel(instr_dict)

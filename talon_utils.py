@@ -10,105 +10,6 @@ pp = pprint.PrettyPrinter(indent=2)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:: %(message)s")
 
 
-
-#example
-#
-#  `define ZBB_I_INSTR_CG_BEGIN(INSTR_NAME) \
-#  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
-#    cp_rs1         : coverpoint instr.rs1; \
-#    cp_rd          : coverpoint instr.rd; \
-#    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)
-#
-#`define ZBB_R_INSTR_CG_BEGIN(INSTR_NAME) \
-#  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
-#    cp_rs1         : coverpoint instr.rs1; \
-#    cp_rs2         : coverpoint instr.rs2; \
-#    cp_rd          : coverpoint instr.rd;  \
-#    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;) \
-# \
-#    `ZBB_I_INSTR_CG_BEGIN(roriw)
-#`CP_VALUE_RANGE(num_bit_rotate, instr.imm, 0, XLEN / 2 - 1)
-#`CG_END
-#
-#`ZBB_R_INSTR_CG_BEGIN(rev8)
-#`CG_END
-#
-#// Multiplication
-#`ZBC_R_INSTR_CG_BEGIN(clmul)
-#`CG_END
-#
-#`ZBC_R_INSTR_CG_BEGIN(clmulh)
-#`CG_END
-
-
-
-coverage_define = []
-coverage_define_record = []
-coverage_delaration = []
-
-funct3_info = []
-funct7_info = []
-
-
-def gen_coverage_code(instr_dict: dict):
-    global coverage_delaration
-    extension = instr_dict['extension']
-    if '_' in extension :
-        isa_extension = extension.split('_')[1].upper()
-    else:
-        isa_extension = 'ERROR'
-
-    isa_type = instr_dict['type']
-    isa_name = instr_dict['isa_name']
-
-    sv_line = '`' + isa_extension + '_' + isa_type + '_INSTR_CG_BEGIN(' + isa_name +')'
-    coverage_delaration.append(sv_line)
-    sv_line = '`CG_END'
-    coverage_delaration.append(sv_line)
-    sv_line = ''
-    coverage_delaration.append(sv_line)
-
-    #  `define ZBB_I_INSTR_CG_BEGIN(INSTR_NAME) \
-    #  `INSTR_CG_BEGIN(INSTR_NAME, riscv_zbb_instr) \
-    #    cp_rs1         : coverpoint instr.rs1; \
-    #    cp_rd          : coverpoint instr.rd; \
-    #    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)
-    #
-    sv_line = '  `define ' + isa_extension  + '_' + isa_type +'_INSTR_CG_BEGIN(INSTR_NAME) \\'
-    if sv_line not in coverage_define_record:
-        coverage_define_record.append(sv_line)
-        coverage_define.append(sv_line)
-
-        sv_line = '  `INSTR_CG_BEGIN(INSTR_NAME, ' + 'riscv_' + isa_extension.lower() + '_instr) \\'
-        coverage_define.append(sv_line)
-
-        sv_line = '    cp_rs1         : coverpoint instr.rs1; \\'
-        coverage_define.append(sv_line)
-
-        sv_line = '    cp_rd          : coverpoint instr.rd; \\'
-        coverage_define.append(sv_line)
-
-        sv_line = '    `DV(cp_gpr_hazard : coverpoint instr.gpr_hazard;)'
-        coverage_define.append(sv_line)
-
-        sv_line = '  '
-        coverage_define.append(sv_line)
-
-    funct3_info = []
-    funct7_info = []
-
-
-    if "funct3" in instr_dict:
-        sv_line = isa_name.upper() + ': get_func3 = 3\'b' + instr_dict['funct3'];
-        funct3_info.append(sv_line)
-    if "funct7" in instr_dict:
-        sv_line = isa_name.upper() + ': get_func7 = 7\'b' + instr_dict['funct7'];
-        funct7_info.append(sv_line)
-
-    pass
-
-
-
 def add_leading_quote(row):
     return {k: f"{v}" if isinstance(v, str) and v.isdigit() else v for k, v in row.items()}
 
@@ -116,37 +17,35 @@ def force_text_format(row):
     return {k: f'= "{v}"' if k == "ID" else v for k, v in row.items()}
 
 def make_talon(instr_dict: InstrDict):
-    # 指定输出的 CSV 文件名
 
-    data = []
-    talon_r = []
-    talon_i = []
-    talon_i_shamt = []
+    talon_r = []         # for R-type instructions
+    talon_i = []         # for I-type instructions
+    talon_i_shamtd = []  # for I-type shamtd-subtype instructions
+    talon_i_shamtw = []  # for I-type shamtw-subtype instructions
+
+
     for key in instr_dict.keys():
-        dict_item = instr_dict[key]
-        temp_dict = {}
-        talon_dict = {}
+        dict_item = instr_dict[key]  # get source data
+
+        temp_dict = {}               # for data transfer, maybe opttmazed in future
+        talon_dict = {}              # transfer information to talon
+
+        ###
+        # copy data from source to local
+        ###
         temp_dict['extension'] = dict_item['extension'][0]
         temp_dict['isa_name'] = dict_item['isa_name']
         temp_dict['type'] = dict_item['type']
         temp_dict['opcode'] = dict_item['opcode']
         temp_dict['variable_filed'] = dict_item['variable_fields']
 
+        ### assemble instruction and variables
         temp_dict['instruction'] = dict_item['isa_name']
         for item in temp_dict['variable_filed']:
             temp_dict['instruction'] +=  ' ' + item + ','
 
         temp_dict['instruction'] = temp_dict['instruction'].rstrip(',')
         talon_dict['Instructions'] = temp_dict['instruction']
-
-        if "_" in talon_dict['Instructions']:
-            talon_dict['Instructions'] = talon_dict['Instructions'].replace("_", ".")
-
-        if "shamtd" in talon_dict['Instructions']:
-            talon_dict['Instructions'] = talon_dict['Instructions'].replace("shamtd", "shamt")
-
-
-        pass #temp for breakpoint should remove in release version
 
         if "funct3" in dict_item:
             temp_dict['funct3'] = dict_item['funct3']
@@ -156,11 +55,32 @@ def make_talon(instr_dict: InstrDict):
             temp_dict['funct7'] = dict_item['funct7']
         else:
             temp_dict['funct7'] = ''
+        if 'imm12' in dict_item:
+            temp_dict['imm12'] = dict_item['imm12']
+        else:
+            temp_dict['imm12'] = ''
+
+
+
+        ###
+        # change format for talon
+        ###
+        if "_" in talon_dict['Instructions']:
+            talon_dict['Instructions'] = talon_dict['Instructions'].replace("_", ".")
+
+        if "shamtd" in talon_dict['Instructions']:
+            talon_dict['Instructions'] = talon_dict['Instructions'].replace("shamtd", "shamt")
+
+        if "shamtw" in talon_dict['Instructions']:
+            talon_dict['Instructions'] = talon_dict['Instructions'].replace("shamtw", "shamt")
 
         talon_dict['opcode[6:5]'] = temp_dict['opcode'][0:2]
         talon_dict['opcode[4:2]'] = temp_dict['opcode'][2:5]
         talon_dict['opcode[1:0]'] = temp_dict['opcode'][5:]
 
+        ###
+        # deal data according to type and sub-type
+        ###
         if 'R' == temp_dict['type']:
             talon_dict['funct7[31:25]'] = temp_dict['funct7']
             talon_dict['funct3[14:12]'] = temp_dict['funct3']
@@ -173,14 +93,18 @@ def make_talon(instr_dict: InstrDict):
             talon_dict['funct3[14:12]'] = temp_dict['funct3']
             talon_dict['inst[19:15]'] = 'rs1'
             talon_dict['inst[11:17]'] = 'rd'
-            if 'shamtd' in temp_dict['variable_filed']:
-                talon_dict['funct7[31:25]'] = temp_dict['funct7'][0:6]
+            if 'shamtd' in temp_dict['variable_filed']:                # shamtd sub-type
+                talon_dict['funct7[31:26]'] = temp_dict['imm12'][0:6]
                 talon_dict['inst[25:20]'] = 'shamt'
-                talon_i_shamt.append(talon_dict)
+                talon_i_shamtd.append(talon_dict)
+            elif 'shamtw' in temp_dict['variable_filed']:              # shamtw sub-type
+                talon_dict['funct7[31:25]'] = temp_dict['imm12'][0:7]
+                talon_dict['inst[24:20]'] = 'shamt'
+                talon_i_shamtw.append(talon_dict)
+            else:                                                      # normal I-type
+                talon_dict['inst[31:20]'] = temp_dict['imm12']
+                talon_i.append(talon_dict)
 
-        data.append(temp_dict)
-        gen_coverage_code(temp_dict)
-    pass #temp for breakpoint should remove in release version
 
     ###
     # Generate R type for talon
@@ -195,74 +119,41 @@ def make_talon(instr_dict: InstrDict):
         writer.writerows([add_leading_quote(row) for row in talon_r])
     print(f"数据已成功写入 {output_file}")
 
-
     ###
-    # Generate I type shmat subtype for talon
+    # Generate I type for talon
     ###
-    output_file = "I_shamt_type.csv"
-    field_order = ["Instructions", "funct7[31:25]", "inst[25:20]", "inst[19:15]",
+    output_file = "I_type.csv"
+    field_order = ["Instructions", "inst[31:20]", "inst[19:15]",
                    "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
     # 将数据写入 CSV 文件
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
         writer.writeheader()
-        writer.writerows([add_leading_quote(row) for row in talon_i_shamt])
+        writer.writerows([add_leading_quote(row) for row in talon_i])
     print(f"数据已成功写入 {output_file}")
 
+    ###
+    # Generate I type shmatd subtype for talon
+    ###
+    output_file = "I_shamtd_type.csv"
+    field_order = ["Instructions", "funct7[31:26]", "inst[25:20]", "inst[19:15]",
+                   "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
+    # 将数据写入 CSV 文件
+    with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
+        writer.writeheader()
+        writer.writerows([add_leading_quote(row) for row in talon_i_shamtd])
+    print(f"数据已成功写入 {output_file}")
 
-
-
-
-
-########################################################################################################
-
-
-riscv_isa_type_dict = {'0110011': 'R',
-                       '0111011': 'R',
-                       '1010011': 'R',
-                       '1110111': 'R',
-                       '0000011': 'I',
-                       '0010011': 'I',
-                       '1100111': 'I',
-                       '1110011': 'I',
-                       '0001111': 'I',
-                       '0011011': 'I',
-                       '0100011': 'S',
-                       '1100011': 'B',
-                       '0110111': 'U',
-                       '0010111': 'U',
-                       '1101111': 'J',
-                       '0101111': 'A',
-                       '1010111': 'V'
-                       }
-
-def parse_isa(isa_dict:  InstrDict):
-    dict_item = {}
-    for key in isa_dict.keys():
-        dict_item = isa_dict[key]
-        encoding = isa_dict[key]['encoding']
-        opcode = encoding[25:32]
-        isa_dict[key]['isa_name'] = key
-        isa_dict[key]['opcode'] = opcode
-        isa_dict[key]['type'] = riscv_isa_type_dict[opcode]
-        if 'R' == isa_dict[key]['type']:
-            funct7 = encoding[0:7]
-            funct3 = encoding[17:20]
-            isa_dict[key]['funct7'] = funct7
-            isa_dict[key]['funct3'] = funct3
-        if 'I' == isa_dict[key]['type']:
-            funct3 = encoding[17:20]
-            isa_dict[key]['funct3'] = funct3
-            if ('0010011' == isa_dict[key]['opcode']) or ('0011011' == isa_dict[key]['opcode']):
-                funct7 = encoding[0:7]
-                isa_dict[key]['funct7'] = funct7
-        if 'B' == isa_dict[key]['type']:
-            funct3 = encoding[17:20]
-            isa_dict[key]['funct3'] = funct3
-        if 'S' == isa_dict[key]['type']:
-            funct3 = encoding[17:20]
-            isa_dict[key]['funct3'] = funct3
-        if 'J' == isa_dict[key]['type']:
-            pass
-        if 'U' == isa_dict[key]['type']:
-            pass
+    ###
+    # Generate I type shmatd subtype for talon
+    ###
+    output_file = "I_shamtw_type.csv"
+    field_order = ["Instructions", "funct7[31:25]", "inst[24:20]", "inst[19:15]",
+                   "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
+    # 将数据写入 CSV 文件
+    with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
+        writer.writeheader()
+        writer.writerows([add_leading_quote(row) for row in talon_i_shamtw])
+    print(f"数据已成功写入 {output_file}")

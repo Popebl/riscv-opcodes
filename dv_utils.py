@@ -216,8 +216,8 @@ def parse_isa(isa_dict:  InstrDict):
             funct3 = encoding[17:20]
             isa_dict[key]['funct3'] = funct3
             if ('0010011' == isa_dict[key]['opcode']) or ('0011011' == isa_dict[key]['opcode']):
-                funct7 = encoding[0:7]
-                isa_dict[key]['funct7'] = funct7
+                imm12 = encoding[0:12]
+                isa_dict[key]['imm12'] = imm12
         if 'B' == isa_dict[key]['type']:
             funct3 = encoding[17:20]
             isa_dict[key]['funct3'] = funct3

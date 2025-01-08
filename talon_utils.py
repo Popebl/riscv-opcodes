@@ -121,6 +121,7 @@ def make_talon(instr_dict: InstrDict):
     data = []
     talon_r = []
     talon_i = []
+    talon_i_shamt = []
     for key in instr_dict.keys():
         dict_item = instr_dict[key]
         temp_dict = {}
@@ -137,7 +138,15 @@ def make_talon(instr_dict: InstrDict):
 
         temp_dict['instruction'] = temp_dict['instruction'].rstrip(',')
         talon_dict['Instructions'] = temp_dict['instruction']
-        pass
+
+        if "_" in talon_dict['Instructions']:
+            talon_dict['Instructions'] = talon_dict['Instructions'].replace("_", ".")
+
+        if "shamtd" in talon_dict['Instructions']:
+            talon_dict['Instructions'] = talon_dict['Instructions'].replace("shamtd", "shamt")
+
+
+        pass #temp for breakpoint should remove in release version
 
         if "funct3" in dict_item:
             temp_dict['funct3'] = dict_item['funct3']
@@ -161,58 +170,51 @@ def make_talon(instr_dict: InstrDict):
             talon_r.append(talon_dict)
 
         if 'I' == temp_dict['type']:
-            talon_i.append(talon_dict)
+            talon_dict['funct3[14:12]'] = temp_dict['funct3']
+            talon_dict['inst[19:15]'] = 'rs1'
+            talon_dict['inst[11:17]'] = 'rd'
+            if 'shamtd' in temp_dict['variable_filed']:
+                talon_dict['funct7[31:25]'] = temp_dict['funct7'][0:6]
+                talon_dict['inst[25:20]'] = 'shamt'
+                talon_i_shamt.append(talon_dict)
 
         data.append(temp_dict)
         gen_coverage_code(temp_dict)
-    pass
+    pass #temp for breakpoint should remove in release version
 
-
-
-    # 假设字典列表如下
-#    data = [
-#        {"Name": "Alice", "Age": 25, "City": "New York"},
-#        {"Name": "Bob", "Age": 30, "City": "Los Angeles"},
-#        {"Name": "Charlie", "Age": 35, "City": "Chicago"}
-#    ]
-
-    # 指定输出的 CSV 文件名
-    output_file = "output.csv"
-
+    ###
+    # Generate R type for talon
+    ###
+    output_file = "r_type.csv"
     field_order = ["Instructions", "funct7[31:25]", "inst[24:20]", "inst[19:15]",
                    "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
     # 将数据写入 CSV 文件
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
-
-        # 写入表头
         writer.writeheader()
-
-        # 写入数据行
-        #writer.writerows(talon_r)
         writer.writerows([add_leading_quote(row) for row in talon_r])
     print(f"数据已成功写入 {output_file}")
 
-    # 指定输出文件名
-    coverage_delaration_file = "coverage_delaration.sv"
 
-    # 按行写入 .sv 文件
-    with open(coverage_delaration_file, mode='w', encoding='utf-8') as file:
-        for line in coverage_define:
-            file.write(line + '\n')  # 每行写入后添加换行符
-    # 按行写入 .sv 文件
-    with open(coverage_delaration_file, mode='a', encoding='utf-8') as file:
-        for line in coverage_delaration:
-            file.write(line + '\n')  # 每行写入后添加换行符
+    ###
+    # Generate I type shmat subtype for talon
+    ###
+    output_file = "I_shamt_type.csv"
+    field_order = ["Instructions", "funct7[31:25]", "inst[25:20]", "inst[19:15]",
+                   "funct3[14:12]", "inst[11:17]", "opcode[6:5]", "opcode[4:2]", "opcode[1:0]"]
+    # 将数据写入 CSV 文件
+    with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames = field_order, quoting=csv.QUOTE_MINIMAL)
+        writer.writeheader()
+        writer.writerows([add_leading_quote(row) for row in talon_i_shamt])
+    print(f"数据已成功写入 {output_file}")
 
-    print(f"内容已成功写入到 {coverage_delaration_file}")
 
 
 
-    # Write the modified output to the file
-#    with open("dv.encoding.out.h", "w", encoding="utf-8") as enc_file:
-#        enc_file.write(output_str)
 
+
+########################################################################################################
 
 
 riscv_isa_type_dict = {'0110011': 'R',
